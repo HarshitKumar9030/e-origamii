@@ -1,299 +1,280 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import CryptoJS from "crypto-js";
+import { ArrowLeft, ShoppingBag, Calendar, Tag, User, Mail, Phone, Package, DollarSign } from 'lucide-react';
 
 const NewOrder = ({ products }) => {
   const router = useRouter();
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    oid: "",
+    product: "",
+    price: "",
+    status: "Pending",
+    date: new Date().toISOString().split('T')[0],
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (!localStorage.getItem("token")) {
       router.push("/");
     }
-  }, []);
-
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [oid, setOid] = useState("");
-  const [product, setProduct] = useState("");
-  const [price, setPrice] = useState("");
-  const [status, setStatus] = useState("");
-  const [date, setDate] = useState("");
-
-  const handleProduct = (e, product) => {
-    const p = products.find((product) => product._id === e.target.value);
-    setPrice(p.price);
-    setProduct(p.productId);
-  };
+  }, [router]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    if (name === "name") {
-      setName(value);
-    } else if (name === "email") {
-      setEmail(value);
-    } else if (name === "phone") {
-      setPhone(value);
-    } else if (name === "status") {
-      setStatus(value);
-    } else if (name === "date") {
-      setDate(value);
-    }
-    logAll()
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const logAll = () => {
-    console.log(name);
-    console.log(email);
-    console.log(phone);
-    console.log(oid);
-    console.log(product);
-    console.log(price);
-    console.log(status);
-    console.log(date);
-    };
+  const handleProduct = (e) => {
+    const selectedProduct = products.find((product) => product._id === e.target.value);
+    setFormData(prev => ({
+      ...prev,
+      product: selectedProduct.productId,
+      price: selectedProduct.price,
+    }));
+  };
 
   const generateOid = () => {
-    if (oid === "") {
+    if (!formData.oid) {
       const oid = CryptoJS.lib.WordArray.random(16).toString();
-      setOid(oid);
+      setFormData(prev => ({ ...prev, oid }));
     }
   };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (
-      !name ||
-      !email ||
-      !phone ||
-      !oid ||
-      !product ||
-      !price ||
-      !status ||
-      !date
-    ) { 
-        toast.error("Please fill all the fields");
-    }else{
-        const res = await fetch(`${process.env.NEXT_PUBLIC_HOST}/api/neworder`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              name: name,
-              email: email,
-              phone: phone,
-              uniqueId: oid,
-              productId: product,
-              price: price,
-              status: status,
-              date: date,
-            }),
-          });
-          const data = await res.json();
-          if (data.error) {
-            toast.error(data.error);
-          } else {
-            toast.success("Order Placed Successfully");
-            setTimeout(() => {
-                router.push("/dashboard");
-                }, 1000);
-                
-          }
+    if (Object.values(formData).some(value => value === "")) {
+      toast.error("Please fill all the fields");
+      return;
+    }
 
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_HOST}/api/neworder`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+      const data = await res.json();
+      if (data.error) {
+        toast.error(data.error);
+      } else {
+        toast.success("Order Placed Successfully");
+        setTimeout(() => {
+          router.push("/dashboard");
+        }, 1000);
+      }
+    } catch (error) {
+      toast.error("An error occurred. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
-  return (
-    <>
-      <ToastContainer
-        position="top-right"
-        autoClose={3000}
-        hideProgressBar={false}
-        closeOnClick
-        pauseOnHover
-      />
-      <div className="goBack">
-        <button
-          className="text-4xl mt-2 ml-2 font-bold text-gray-700 "
-          onClick={() => router.back()}
-        >
-          Go Back
-        </button>
-      </div>
-      <div className="flex flex-col items-center justify-center min-h-screen py-2 -mt-28 sm:py-12">
-        <div className="flex flex-col rounded-t-lg items-center justify-center w-full px-4 pt-6 pb-8 mt-6 overflow-hidden text-left transition-all transform bg-white border border-gray-300 rounded-lg shadow-xl sm:max-w-md sm:w-full sm:p-6">
-          <div className="flex flex-col  items-center justify-center w-full">
-            <div className="flex items-center justify-center w-12 h-12 mb-4 bg-blue-100 rounded-full">
-              <svg
-                className="w-6 h-6 text-blue-600"
-                stroke="currentColor"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                />
-              </svg>
-            </div>
-            <div className="w-full mt-6">
-              <h2 className="mb-1 text-3xl font-semibold leading-tight tracking-tight text-gray-900 sm:text-4xl">
-                New Order
-              </h2>
-              <p className="text-sm text-gray-500">
-                Please fill in the details below to create a new order.
-              </p>
-            </div>
-          </div>
-          <div className="w-full mt-6">
-            <form className="flex flex-col space-y-6">
-              <div className="flex flex-col space-y-1">
-                <label className="text-sm font-medium text-gray-700 tracking-wide">
-                  Order ID
-                </label>
-                <input
-                  disabled
-                  value={oid}
-                  className="px-4 py-3 text-base text-gray-700 placeholder-gray-400 transition duration-150 ease-in-out bg-white border border-gray-300 rounded-lg appearance-none focus:border-blue-500 focus:outline-none focus:shadow-outline"
-                  type="text"
-                  placeholder="Order ID"
-                />
-                <button
-                  type="button"
-                  onClick={generateOid}
-                  className="px-6 font-semibold bg-blue-600 py-2 hover:bg-blue-700 rounded-lg text-white duration-300"
-                >
-                  Generate
-                </button>
-              </div>
-              <div className="flex flex-col space-y-1">
-                <label className="text-sm font-medium text-gray-700 tracking-wide">
-                  Order Date
-                </label>
-                <input
-                    onChange={handleChange}
-                    name="date"
-                    value={date}
-                  className="px-4 py-3 text-base text-gray-700 placeholder-gray-400 transition duration-150 ease-in-out bg-white border border-gray-300 rounded-lg appearance-none focus:border-blue-500 focus:outline-none focus:shadow-outline"
-                  type="date"
-                  placeholder="Order Date"
-                />
-              </div>
-              <div className="flex flex-col space-y-1">
-                <label className="text-sm font-medium text-gray-700 tracking-wide">
-                  Order Status
-                </label>
-                <select onChange={handleChange} value={status} name='status' className="px-4 py-3 text-base text-gray-700 placeholder-gray-400 transition duration-150 ease-in-out bg-white border border-gray-300 rounded-lg appearance-none focus:border-blue-500 focus:outline-none focus:shadow-outline">
-                  <option value="Delivered">Delivered</option>
-                  <option value="Pending">Pending</option>
-                </select>
-              </div>
-              <div className="flex flex-col space-y-1">
-                <label className="text-sm font-medium text-gray-700 tracking-wide">
-                  Customer Name
-                </label>
-                <input
-                    onChange={handleChange}
-                    name="name"
-                    value={name}
-                  className="px-4 py-3 text-base text-gray-700 placeholder-gray-400 transition duration-150 ease-in-out bg-white border border-gray-300 rounded-lg appearance-none focus:border-blue-500 focus:outline-none focus:shadow-outline"
-                  type="text"
-                  placeholder="Customer Name"
-                />
-              </div>
-              <div className="flex flex-col space-y-1">
-                <label className="text-sm font-medium text-gray-700 tracking-wide">
-                  Customer Email
-                </label>
-                <input
-                    onChange={handleChange}
-                    name="email"
-                    value={email}
-                  className="px-4 py-3 text-base text-gray-700 placeholder-gray-400 transition duration-150 ease-in-out bg-white border border-gray-300 rounded-lg appearance-none focus:border-blue-500 focus:outline-none focus:shadow-outline"
-                  type="email"
-                  placeholder="Customer Email"
-                />
-              </div>
-              <div className="flex flex-col space-y-1">
-                <label className="text-sm font-medium text-gray-700 tracking-wide">
-                  Customer Phone
-                </label>
-                <input
-                    onChange={handleChange}
-                    name="phone"
-                    value={phone}
-                  className="px-4 py-3 text-base text-gray-700 placeholder-gray-400 transition duration-150 ease-in-out bg-white border border-gray-300 rounded-lg appearance-none focus:border-blue-500 focus:outline-none focus:shadow-outline"
-                  type="text"
-                  placeholder="Customer Phone"
-                />
-              </div>
-              <div className="flex flex-col space-y-1">
-                <label className="text-sm font-medium text-gray-700 tracking-wide">
-                  Select Product
-                </label>
-                <select
-                  onChange={handleProduct}
-                  className="px-4 py-3 text-base text-gray-700 placeholder-gray-400 transition duration-150 ease-in-out bg-white border border-gray-300 rounded-lg appearance-none focus:border-blue-500 focus:outline-none focus:shadow-outline"
-                >
-                  {products.map((product) => (
-                    <option key={product._id} value={product._id}>
-                      {product.name}, Price: {product.price}₹
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex flex-col space-y-1">
-                <label className="text-sm font-medium text-gray-700 tracking-wide">
-                  Product Id
-                </label>
-                <input
-                  disabled
-                  value={product}
-                  className="px-4 py-3 text-base text-gray-700 placeholder-gray-400 transition duration-150 ease-in-out bg-white border border-gray-300 rounded-lg appearance-none focus:border-blue-500 focus:outline-none focus:shadow-outline"
-                  type="text"
-                  placeholder="Product Id"
-                />
-              </div>
-                <div className="flex flex-col space-y-1">
-                <label className="text-sm font-medium text-gray-700 tracking-wide">
-                    Product Price
-                </label>
-                <input
-                    disabled
-                    value={`${price} ₹`}
-                    className="px-4 py-3 text-base text-gray-700 placeholder-gray-400 transition duration-150 ease-in-out bg-white border border-gray-300 rounded-lg appearance-none focus:border-blue-500 focus:outline-none focus:shadow-outline"
-                    type="text"
-                    placeholder="Product Price"
-                />  
-                </div>
-                <button
-                    type="submit"
-                    onClick={handleSubmit}
-                    className="px-6 font-semibold bg-blue-600 py-2 hover:bg-blue-700 rounded-lg text-white duration-300"
-                >
-                    Submit
-                </button>
 
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-100 to-blue-200 py-12 px-4 sm:px-6 lg:px-8">
+      <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} closeOnClick pauseOnHover />
+      
+      <div className="max-w-3xl mx-auto">
+        <div className="bg-white shadow-xl rounded-lg overflow-hidden">
+          <div className="px-6 py-8 sm:p-10">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center">
+                <div className="h-14 w-14 bg-blue-500 rounded-full flex items-center justify-center">
+                  <ShoppingBag className="h-8 w-8 text-white" />
+                </div>
+                <div className="ml-4">
+                  <h2 className="text-2xl font-bold text-gray-800">New Order</h2>
+                  <p className="text-sm text-gray-600">Enter the order details below.</p>
+                </div>
+              </div>
+              <button
+                onClick={() => router.back()}
+                className="flex items-center text-blue-600 hover:text-blue-800 transition-colors duration-200"
+              >
+                <ArrowLeft className="w-5 h-5 mr-1" />
+                Go Back
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Order ID</label>
+                  <div className="relative">
+                    <Tag className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      name="oid"
+                      value={formData.oid}
+                      disabled
+                      className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Order ID"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={generateOid}
+                    className="mt-2 w-full bg-blue-100 text-blue-600 px-4 py-2 rounded-md hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-200"
+                  >
+                    Generate
+                  </button>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Order Date</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="date"
+                      name="date"
+                      value={formData.date}
+                      onChange={handleChange}
+                      className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Order Status</label>
+                <select
+                  name="status"
+                  value={formData.status}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="Pending">Pending</option>
+                  <option value="Delivered">Delivered</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name</label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleChange}
+                      className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Customer Name"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Customer Email</label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Customer Email"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Customer Phone</label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Customer Phone"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Select Product</label>
+                <div className="relative">
+                  <Package className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <select
+                    onChange={handleProduct}
+                    className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select a product</option>
+                    {products.map((product) => (
+                      <option key={product._id} value={product._id}>
+                        {product.name}, Price: {product.price}₹
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Product ID</label>
+                  <div className="relative">
+                    <Tag className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      name="product"
+                      value={formData.product}
+                      disabled
+                      className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50"
+                      placeholder="Product ID"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Product Price</label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      name="price"
+                      value={`${formData.price} ₹`}
+                      disabled
+                      className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50"
+                      placeholder="Product Price"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-5">
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  {isSubmitting ? 'Creating Order...' : 'Create Order'}
+                </button>
+              </div>
             </form>
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 };
 
 export async function getServerSideProps(context) {
-  const { id } = context.query;
   const res = await fetch(`${process.env.NEXT_PUBLIC_HOST}/api/viewproducts`);
-  const product = await res.json();
+  const products = await res.json();
   return {
     props: {
-      products: product,
+      products,
     },
   };
 }
+
 export default NewOrder;

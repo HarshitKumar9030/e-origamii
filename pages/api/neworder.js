@@ -4,7 +4,10 @@ import nodemailer from 'nodemailer';
 import Product from "../../models/Product";
 
 const handler = async (req, res) => {
-    //Setting nodemailer
+    if (req.method !== "POST") {
+        return res.status(405).json({ error: "Method not allowed" });
+    }
+
     const transporter = nodemailer.createTransport({
         service: 'mailgun',
         auth: {
@@ -12,75 +15,74 @@ const handler = async (req, res) => {
             pass: process.env.MAILGUN_SECRET
         }
     });
-    if (req.method === "POST") {
-        const { name, email, phone, price, date, productId, uniqueId } = req.body;
-        // use the Order model to create a new order
+
+    try {
+        const { name, email, phone, price, date, oid } = req.body;
+        const productId = req.body.product;
         const order = await new Order({
-            name: name,
-            email: email,
-            phone: phone,
-            price: price,
-            date: date,
+            name,
+            email,
+            phone,
+            price,
+            date,
             productId: productId,
-            uniqueId: uniqueId
+            uniqueId: oid 
         }).save();
 
-        // Find Product name by id
         const product = await Product.findOne({ productId });
+        if (!product) {
+            return res.status(404).json({ error: "Product not found" });
+        }
+
         const productName = product.name;
 
-        // Create the invoice
         const interactive_invoice = `
-        <div style="width: 100%; height: 100%; background-color: #f5f5f5; padding: 20px 0;">
-    <div style="width: 100%; max-width: 600px; margin: 0 auto; background-color: #fff; padding: 20px;">
-        <div style="width: 100%; text-align: center; margin-bottom: 20px;">
-            <h1 style="font-size: 1.5rem; color: #333;">Invoice</h1>
-        </div>
-        <div style="width: 100%; text-align: left; margin-bottom: 20px;">
-            <h2 style="font-size: 1.2rem; color: #333;">Product Id: ${order.productId}</h2>
-        </div>
-              <div style="width: 100%; text-align: left; margin-bottom: 20px;">
-            <h2 style="font-size: 1.2rem; color: #333;">Product Name: ${productName}</h2>
-        </div>
-        <div style="width: 100%; text-align: left; margin-bottom: 20px;">
-            <h2 style="font-size: 1.2rem; color: #333;">Order Unique Id: ${order.uniqueId}</h2>
-        </div>
-        <div style="width: 100%; text-align: left; margin-bottom: 20px;">
-            <h2 style="font-size: 1.2rem; color: #333;">Order Date: ${order.date}</h2>
-        </div>
-        <div style="width: 100%; text-align: left; margin-bottom: 20px;">
-            <h2 style="font-size: 1.2rem; color: #333;">Order Price:₹ ${order.price} at 30% off.</h2>
-        </div>
-        <div style="width: 100%; text-align: left; margin-bottom: 20px;">
-            <h2 style="font-size: 1.2rem; color: #333;">Order Product Id: ${order.productId}</h2>
-        </div>
-        <div style="font-size: 1rem;font-weight: semibold;color: #333;margin-top: 8px; text-align: center;" class="footer">Thanks for visiting Silver Jubilee at Ucskm Public School Bhiwadi.</div>
-    </div>
-</div>
+            <div style="width: 100%; max-width: 600px; margin: 0 auto; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <h1 style="font-size: 24px; color: #333; margin-bottom: 10px;">Invoice</h1>
+                    <p style="font-size: 16px; color: #666;">Thank you for your order!</p>
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <h2 style="font-size: 18px; color: #333; margin-bottom: 10px;">Order Details</h2>
+                    <p style="font-size: 14px; color: #666; margin-bottom: 5px;"><strong>Product Name:</strong> ${productName}</p>
+                    <p style="font-size: 14px; color: #666; margin-bottom: 5px;"><strong>Order ID:</strong> ${order.uniqueId}</p>
+                    <p style="font-size: 14px; color: #666; margin-bottom: 5px;"><strong>Order Date:</strong> ${order.date}</p>
+                    <p style="font-size: 14px; color: #666; margin-bottom: 5px;"><strong>Order Price:</strong> ₹${order.price} (30% off applied)</p>
+                    <p style="font-size: 14px; color: #666; margin-bottom: 5px;"><strong>Product ID:</strong> ${order.productId}</p>
+                </div>
+                <div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;">
+                    <p style="font-size: 14px; color: #666;">Thanks for visiting Silver Jubilee at Ucskm Public School Bhiwadi.</p>
+                </div>
+            </div>
         `;
 
-        // Send the invoice
         const mailOptions = {
             from: process.env.MAILGUN_USER,
             to: order.email,
-            subject: 'Invoice for the order',
+            subject: 'Your Order Invoice',
             html: interactive_invoice
         };
-        transporter.sendMail(mailOptions, function (err, info) {
-            if (err) {
-                console.log(err);
-            }
-            else {
-                console.log('sent');
-            }
+
+        await new Promise((resolve, reject) => {
+            transporter.sendMail(mailOptions, (err, info) => {
+                if (err) {
+                    console.error('Email sending failed:', err);
+                    reject(err);
+                } else {
+                    console.log('Email sent successfully');
+                    resolve(info);
+                }
+            });
         });
+
         res.status(200).json({
-            "status": "success",
-            "message": "Order created successfully",
+            status: "success",
+            message: "Order created successfully",
         });
-    }else{
-        return res.status(405).json({ error: "Method not allowed" });
+    } catch (error) {
+        console.error('Order creation failed:', error);
+        res.status(500).json({ error: "An error occurred while processing your order" });
     }
-}
+};
 
 export default ConnectDb(handler);
